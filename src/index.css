@@ -1,3 +1,22 @@
+
+@import './styless.scss';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ...existing code... */
+
+nav {
+  @apply bg-white dark:bg-gray-800 shadow;
+}
+
+nav a {
+  @apply text-lg text-gray-800 dark:text-white;
+}
+
+nav a:hover {
+  @apply text-blue-500;
+}
+
+/* ...existing code... */
