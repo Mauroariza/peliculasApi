@@ -1,8 +1,13 @@
-import { Routes, Route, Link } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
+import { Film } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { Film, X, Moon, Sun } from 'lucide-react';
+import Navbar from './components/Navbar';
+import MovieDetails from './components/MovieDetails';
 import News from './News';
+import Contact from './components/Contact';
+import Home from './components/Home';
+import SignIn from './components/SignIn';
 
 interface Movie {
   id: number;
@@ -11,30 +16,44 @@ interface Movie {
   overview: string;
 }
 
-interface MovieDetails extends Movie {
+interface MovieDetailsType extends Movie {
   release_date: string;
   vote_average: number;
   genres: { id: number; name: string }[];
+}
+
+interface NewsArticle {
+  urlToImage: string;
+  title: string;
+  description: string;
+  url: string;
 }
 
 function App() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedMovie, setSelectedMovie] = useState<MovieDetails | null>(null);
+  const [selectedMovie, setSelectedMovie] = useState<MovieDetailsType | null>(null);
   const [page, setPage] = useState(1);
   const [darkMode, setDarkMode] = useState(false);
+  const [news, setNews] = useState<NewsArticle[]>([]);
+  const [newsLoading, setNewsLoading] = useState(true);
+  const [newsError, setNewsError] = useState('');
   const observer = useRef<IntersectionObserver | null>(null);
-  const lastMovieElementRef = useCallback((node: HTMLDivElement | null) => {
-    if (loading) return;
-    if (observer.current) observer.current.disconnect();
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting) {
-        setPage(prevPage => prevPage + 1);
-      }
-    });
-    if (node) observer.current.observe(node);
-  }, [loading]);
+
+  const lastMovieElementRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (loading) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver(entries => {
+        if (entries[0].isIntersecting) {
+          setPage(prevPage => prevPage + 1);
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [loading]
+  );
 
   const API_KEY = '815ee7b95cdc0901111ec543ca7be325';
 
@@ -80,19 +99,6 @@ function App() {
     }
   };
 
-  // New state for movie news
-  interface NewsArticle {
-    urlToImage: string;
-    title: string;
-    description: string;
-    url: string;
-  }
-
-  const [news, setNews] = useState<NewsArticle[]>([]);
-  const [newsLoading, setNewsLoading] = useState(true);
-  const [newsError, setNewsError] = useState('');
-
-  // Fetch movie news
   const fetchNews = useCallback(async () => {
     setNewsLoading(true);
     try {
@@ -103,27 +109,14 @@ function App() {
           country: 'us',
         },
       });
-  
-      // Filter out removed or invalid articles
-      const validArticles = response.data.articles.filter((article: NewsArticle) => {
-        // Exclude articles that are marked as removed or missing important fields
-        return (
-          article.title &&
-          article.url &&
-          article.urlToImage &&
-          article.description &&
-          !article.title.includes('removed')
-        );
-      });
-  
-      setNews(validArticles);
+      setNews(response.data.articles);
+      setNewsLoading(false);
     } catch (err) {
       setNewsError('Error al cargar las noticias');
-    } finally {
       setNewsLoading(false);
     }
   }, []);
-  
+
   useEffect(() => {
     fetchNews();
   }, [fetchNews]);
@@ -132,111 +125,93 @@ function App() {
     setDarkMode(!darkMode);
   };
 
-  if (error) return <div className="flex justify-center items-center h-screen text-red-500">{error}</div>;
+  if (error)
+    return (
+      <div className="flex justify-center items-center h-screen text-red-500">
+        {error}
+      </div>
+    );
 
-  return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} transition-colors duration-300`}>
-      <nav className="bg-white dark:bg-gray-800 shadow">
-        <div className="container mx-auto p-4 flex justify-between">
-          <Link to="/" className="text-xl font-bold">Películas Populares</Link>
-          <Link to="/news" className="text-lg">Noticias</Link>
-        </div>
-      </nav>
-
+    return (
+      <div
+        className={`min-h-screen transition-colors duration-300 ${
+          darkMode ? 'dark bg-gray-900 text-white' : 'bg-white text-gray-900'
+        }`}
+      >
+        <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
       <Routes>
-        <Route path="/" element={
-          <div className="container mx-auto p-8">
-            <div className="flex justify-between items-center mb-8">
-              <h1 className="text-4xl font-bold flex items-center">
-                <Film className="mr-2" />
-                Películas Populares
-              </h1>
-              <button
-                onClick={toggleDarkMode}
-                className={`p-2 rounded-full ${darkMode ? 'bg-yellow-400 text-gray-900' : 'bg-gray-200 text-gray-800'}`}
-              >
-                {darkMode ? <Sun size={24} /> : <Moon size={24} />}
-              </button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {movies.map((movie, index) => (
-                <div 
-                  key={`${movie.id}-${index}`}
-                  ref={index === movies.length - 1 ? lastMovieElementRef : null}
-                  className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md overflow-hidden cursor-pointer transition-transform hover:scale-105`}
-                  onClick={() => fetchMovieDetails(movie.id)}
-                >
-                  <img
-                    src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
-                    alt={movie.title}
-                    className="w-full h-64 object-cover"
-                  />
-                  <div className="p-4">
-                    <h2 className="text-xl font-semibold mb-2">{movie.title}</h2>
-                    <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} text-sm line-clamp-3`}>{movie.overview}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {loading && <div className="text-center mt-4">Cargando más películas...</div>}
-          </div>
-        } />
-        <Route path="/news" element={
-          <div className="container mx-auto p-8">
-            <h2 className="text-3xl font-bold mb-4">Últimas Noticias del Cine</h2>
-            <button
-              onClick={toggleDarkMode}
-              className={`mb-4 p-2 rounded-full ${darkMode ? 'bg-yellow-400 text-gray-900' : 'bg-gray-200 text-gray-800'}`}
+        
+      <Route 
+    path="/Home" 
+    element={<Home darkMode={darkMode} featuredMovies={movies.slice(0, 4)} />} 
+  />
+   <Route 
+    path="/movies" 
+    element={
+      <div className="container mx-auto p-8">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold flex items-center">
+            <Film className="mr-2" />
+            Películas Populares
+          </h1>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {movies.map((movie, index) => (
+            <div
+              key={`${movie.id}-${index}`}
+              ref={index === movies.length - 1 ? lastMovieElementRef : null}
+              className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md overflow-hidden cursor-pointer transition-transform hover:scale-105`}
+              onClick={() => fetchMovieDetails(movie.id)}
             >
-              {darkMode ? <Sun size={24} /> : <Moon size={24} />}
-            </button>
-            <News news={news} newsLoading={newsLoading} newsError={newsError} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-          </div>
-        } />
+              <img
+                src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
+                alt={movie.title}
+                className="w-full h-64 object-cover"
+              />
+              <div className="p-4">
+                <h2 className="text-xl font-semibold mb-2">{movie.title}</h2>
+                <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} text-sm line-clamp-3`}>
+                  {movie.overview}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+        {loading && <div className="text-center mt-4">Cargando más películas...</div>}
+      </div>
+    }
+  />
+
+        <Route
+          path="/news"
+          element={
+            <div className="container mx-auto p-8">
+              <h2 className="text-3xl font-bold mb-4">Últimas Noticias del Cine</h2>
+              <News
+                news={news}
+                newsLoading={newsLoading}
+                newsError={newsError}
+                darkMode={darkMode}
+              />
+            </div>
+          }
+        />
+        <Route
+    path="/contact"
+    element={<Contact darkMode={darkMode} />}
+  />
+   <Route
+          path="/signin"
+          element={<SignIn darkMode={darkMode} />}
+        />
       </Routes>
 
       {selectedMovie && (
-        <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
-          <div className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl`}>
-            <div className="relative">
-              <img
-                src={`https://image.tmdb.org/t/p/w500${selectedMovie.poster_path}`}
-                alt={selectedMovie.title}
-                className="w-full h-64 object-cover rounded-t-lg"
-              />
-              <button 
-                onClick={() => setSelectedMovie(null)}
-                className={`absolute top-2 right-2 ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-800'} rounded-full p-1 hover:bg-opacity-80`}
-              >
-                <X size={24} />
-              </button>
-            </div>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">{selectedMovie.title}</h2>
-              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-4`}>{selectedMovie.overview}</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="font-semibold">Fecha de lanzamiento:</p>
-                  <p>{new Date(selectedMovie.release_date).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <p className="font-semibold">Puntuación:</p>
-                  <p>{selectedMovie.vote_average.toFixed(1)} / 10</p>
-                </div>
-              </div>
-              <div className="mt-4">
-                <p className="font-semibold">Géneros:</p>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {selectedMovie.genres.map((genre) => (
-                    <span key={genre.id} className={`${darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-800'} px-2 py-1 rounded-full text-sm`}>
-                      {genre.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <MovieDetails
+          selectedMovie={selectedMovie}
+          darkMode={darkMode}
+          onClose={() => setSelectedMovie(null)}
+        />
       )}
     </div>
   );
